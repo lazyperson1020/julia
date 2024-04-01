@@ -743,8 +743,6 @@ static void init_global_mutexes(void) {
 }
 
 extern arraylist_t parsed_method_stack;
-extern uv_mutex_t counter_table_lock;
-extern htable_t counter_table;
 
 JL_DLLEXPORT void julia_init(JL_IMAGE_SEARCH rel)
 {
@@ -828,8 +826,6 @@ JL_DLLEXPORT void julia_init(JL_IMAGE_SEARCH rel)
 
     jl_gc_init();
 
-    uv_mutex_init(&counter_table_lock);
-    htable_new(&counter_table, 0);
     arraylist_new(&parsed_method_stack, 0);
     arraylist_new(&jl_linkage_blobs, 0);
     arraylist_new(&jl_image_relocs, 0);
@@ -884,6 +880,7 @@ static NOINLINE void _finish_julia_init(JL_IMAGE_SEARCH rel, jl_ptls_t ptls, jl_
         jl_load(jl_core_module, "boot.jl");
         post_boot_hooks();
     }
+    jl_main_module->counter_table = NULL;
 
     if (jl_base_module == NULL) {
         // nthreads > 1 requires code in Base

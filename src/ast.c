@@ -209,17 +209,13 @@ static value_t fl_nothrow_julia_global(fl_context_t *fl_ctx, value_t *args, uint
 }
 
 arraylist_t parsed_method_stack; // for keeping track of which methods are being parsed
-uv_mutex_t counter_table_lock;
-htable_t counter_table; // map from module_name -> inner htable; inner htable maps from char * -> uint32_t
 
 static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, uint32_t nargs) JL_NOTSAFEPOINT
 {
     jl_ast_context_t *ctx = jl_ast_ctx(fl_ctx);
-    assert(ctx->module);
+    jl_module_t *m = ctx->module;
+    assert(m != NULL);
     // Create a string of the form <$outermost_func_name>$counter
-    // where counter is the next counter for the module obtained by calling `jl_module_next_counter`
-    // Get the module name
-    char *modname = jl_symbol_name(ctx->module->name);
     // Get the outermost function name from the `parsed_method_stack` top
     char *funcname = NULL;
     value_t funcname_v = parsed_method_stack.len > 0 ? (value_t)parsed_method_stack.items[0] : fl_ctx->NIL;
@@ -230,15 +226,11 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
     char buf[(funcname != NULL ? strlen(funcname) : 0) + 20];
     if (funcname != NULL && funcname[0] != '#') {
         uint32_t nxt;
-        uv_mutex_lock(&counter_table_lock);
-        // try to find the module name in the counter table, if it's not create a symbol table for it
-        if (ptrhash_get(&counter_table, modname) == HT_NOTFOUND) {
-            // if not found, add it to the counter table
-            htable_t *new_table = (htable_t*)malloc_s(sizeof(htable_t));
-            htable_new(new_table, 0);
-            ptrhash_put(&counter_table, modname, new_table);
+        jl_mutex_lock_nogc(&m->lock);
+        htable_t *mod_table = m->counter_table;
+        if (mod_table == NULL) {
+            mod_table = m->counter_table = htable_new((htable_t *)malloc_s(sizeof(htable_t)), 0);
         }
-        htable_t *mod_table = (htable_t*)ptrhash_get(&counter_table, modname);
         // try to find the function name in the module's counter table, if it's not found, add it
         if (ptrhash_get(mod_table, funcname) == HT_NOTFOUND) {
             // Don't forget to shift the counter by 2 and or it with 3
@@ -249,7 +241,7 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
         // Increment the counter and don't forget to shift it by 2 and or it with 3
         // to avoid the counter being 0 or 1, which are reserved
         ptrhash_put(mod_table, funcname, (void*)(uintptr_t)((nxt + 1) << 2 | 3));
-        uv_mutex_unlock(&counter_table_lock);
+        jl_mutex_unlock_nogc(&m->lock);
         snprintf(buf, sizeof(buf), "<%s>%d", funcname, nxt);
     }
     else {
