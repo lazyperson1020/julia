@@ -2379,7 +2379,7 @@
             (cons (car e)
                   (map expand-forms (cdr e)))))))
 
-;; wrapper for `cl-convert-`
+;; wrapper for `expand-forms-`
 (define (expand-forms e)
   (let ((pushed (julia-push-closure-expr e)))
     (let ((res (expand-forms- e)))

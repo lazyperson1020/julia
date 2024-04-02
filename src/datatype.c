@@ -25,20 +25,36 @@ static int is10digit(char c) JL_NOTSAFEPOINT
     return (c >= '0' && c <= '9');
 }
 
+STATIC_INLINE int is_canonicalized_anonfn_typename(char *name) JL_NOTSAFEPOINT
+{
+    if (is10digit(name[1]))
+        return 1;
+    char *delim = strchr(&name[1], '#');
+    if (delim == NULL)
+        return 0;
+    if (delim[1] != '#')
+        return 0;
+    if (!is10digit(delim[2]))
+        return 0;
+    return 1;
+}
+
 static jl_sym_t *jl_demangle_typename(jl_sym_t *s) JL_NOTSAFEPOINT
 {
     char *n = jl_symbol_name(s);
     if (n[0] != '#')
         return s;
-    char *end = strrchr(n, '#');
+    char *end = strchr(&n[1], '#');
+    // handle `#f...##...#...`
+    if (end != NULL && end[1] == '#')
+        end = strchr(&end[2], '#');
     int32_t len;
-    if (end == n || end == n+1)
+    if (end == NULL || end == n || end == n+1)
         len = strlen(n) - 1;
     else
         len = (end-n) - 1;  // extract `f` from `#f#...`
-    if (is10digit(n[1]) || n[1] == '<') {
+    if (is_canonicalized_anonfn_typename(n))
         return _jl_symbol(n, len+1);
-    }
     return _jl_symbol(&n[1], len);
 }
 

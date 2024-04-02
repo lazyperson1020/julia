@@ -133,6 +133,7 @@ typedef struct _jl_ast_context_t {
     value_t ssavalue_sym;
     value_t slot_sym;
     jl_module_t *module; // context module for `current-julia-module-counter`
+    arraylist_t parsed_method_stack; // for keeping track of which methods are being parsed
     struct _jl_ast_context_t *next; // invasive list pointer for getting free contexts
 } jl_ast_context_t;
 
@@ -208,21 +209,18 @@ static value_t fl_nothrow_julia_global(fl_context_t *fl_ctx, value_t *args, uint
     return b != NULL && jl_atomic_load_relaxed(&b->value) != NULL ? fl_ctx->T : fl_ctx->F;
 }
 
-arraylist_t parsed_method_stack; // for keeping track of which methods are being parsed
-
 static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, uint32_t nargs) JL_NOTSAFEPOINT
 {
     jl_ast_context_t *ctx = jl_ast_ctx(fl_ctx);
     jl_module_t *m = ctx->module;
+    arraylist_t *parsed_method_stack = &ctx->parsed_method_stack;
     assert(m != NULL);
-    // Create a string of the form <$outermost_func_name>$counter
     // Get the outermost function name from the `parsed_method_stack` top
     char *funcname = NULL;
-    value_t funcname_v = parsed_method_stack.len > 0 ? (value_t)parsed_method_stack.items[0] : fl_ctx->NIL;
+    value_t funcname_v = parsed_method_stack->len > 0 ? (value_t)parsed_method_stack->items[0] : fl_ctx->NIL;
     if (funcname_v != fl_ctx->NIL) {
         funcname = symbol_name(fl_ctx, funcname_v);
     }
-    // Create the string
     char buf[(funcname != NULL ? strlen(funcname) : 0) + 20];
     if (funcname != NULL && funcname[0] != '#') {
         uint32_t nxt;
@@ -242,7 +240,7 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
         // to avoid the counter being 0 or 1, which are reserved
         ptrhash_put(mod_table, funcname, (void*)(uintptr_t)((nxt + 1) << 2 | 3));
         jl_mutex_unlock_nogc(&m->lock);
-        snprintf(buf, sizeof(buf), "<%s>%d", funcname, nxt);
+        snprintf(buf, sizeof(buf), "%s##%d", funcname, nxt);
     }
     else {
         snprintf(buf, sizeof(buf), "%d", jl_module_next_counter(ctx->module));
@@ -278,6 +276,8 @@ static value_t fl_julia_scalar(fl_context_t *fl_ctx, value_t *args, uint32_t nar
 static value_t fl_julia_push_closure_expr(fl_context_t *fl_ctx, value_t *args, uint32_t nargs)
 {
     argcount(fl_ctx, "julia-push-closure-expr", nargs, 1);
+    jl_ast_context_t *ctx = jl_ast_ctx(fl_ctx);
+    arraylist_t *parsed_method_stack = &ctx->parsed_method_stack;
     // Check if the head of the symbol at `args[0]` is (method <name>) or (method (outerref <name>))
     // and if so, push the name onto the `parsed_method_stack`
     value_t arg = args[0];
@@ -286,7 +286,7 @@ static value_t fl_julia_push_closure_expr(fl_context_t *fl_ctx, value_t *args, u
         if (head == symbol(fl_ctx, "method")) {
             value_t name = car_(cdr_(arg));
             if (issymbol(name)) {
-                arraylist_push(&parsed_method_stack, (void*)name);
+                arraylist_push(parsed_method_stack, (void*)name);
                 return fl_ctx->T;
             }
             if (iscons(name)) {
@@ -294,7 +294,7 @@ static value_t fl_julia_push_closure_expr(fl_context_t *fl_ctx, value_t *args, u
                 if (head == symbol(fl_ctx, "outerref")) {
                     value_t name_inner = car_(cdr_(name));
                     assert(issymbol(name_inner));
-                    arraylist_push(&parsed_method_stack, (void*)name_inner);
+                    arraylist_push(parsed_method_stack, (void*)name_inner);
                     return fl_ctx->T;
                 }
             }
@@ -306,8 +306,10 @@ static value_t fl_julia_push_closure_expr(fl_context_t *fl_ctx, value_t *args, u
 static value_t fl_julia_pop_closure_expr(fl_context_t *fl_ctx, value_t *args, uint32_t nargs)
 {
     argcount(fl_ctx, "julia-pop-closure-expr", nargs, 0);
+    jl_ast_context_t *ctx = jl_ast_ctx(fl_ctx);
+    arraylist_t *parsed_method_stack = &ctx->parsed_method_stack;
     // Pop the top of the `parsed_method_stack`
-    arraylist_pop(&parsed_method_stack);
+    arraylist_pop(parsed_method_stack);
     return fl_ctx->NIL;
 }
 
@@ -344,6 +346,7 @@ static void jl_init_ast_ctx(jl_ast_context_t *ctx) JL_NOTSAFEPOINT
     ctx->ssavalue_sym = symbol(fl_ctx, "ssavalue");
     ctx->slot_sym = symbol(fl_ctx, "slot");
     ctx->module = NULL;
+    arraylist_new(&ctx->parsed_method_stack, 0);
     set(symbol(fl_ctx, "*scopewarn-opt*"), fixnum(jl_options.warn_scope));
 }
 
