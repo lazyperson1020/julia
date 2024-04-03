@@ -369,6 +369,7 @@ static jl_ast_context_t *jl_ast_ctx_enter(jl_module_t *m) JL_GLOBALLY_ROOTED JL_
         ctx = (jl_ast_context_t*)calloc(1, sizeof(jl_ast_context_t));
         jl_init_ast_ctx(ctx);
     }
+    ctx->parsed_method_stack.len = 0;
     ctx->module = m;
     return ctx;
 }
