@@ -133,7 +133,6 @@ typedef struct _jl_ast_context_t {
     value_t ssavalue_sym;
     value_t slot_sym;
     jl_module_t *module; // context module for `current-julia-module-counter`
-    arraylist_t parsed_method_stack; // for keeping track of which methods are being parsed
     struct _jl_ast_context_t *next; // invasive list pointer for getting free contexts
 } jl_ast_context_t;
 
@@ -307,7 +306,6 @@ static void jl_init_ast_ctx(jl_ast_context_t *ctx) JL_NOTSAFEPOINT
     ctx->ssavalue_sym = symbol(fl_ctx, "ssavalue");
     ctx->slot_sym = symbol(fl_ctx, "slot");
     ctx->module = NULL;
-    arraylist_new(&ctx->parsed_method_stack, 0);
     set(symbol(fl_ctx, "*scopewarn-opt*"), fixnum(jl_options.warn_scope));
 }
 
@@ -330,7 +328,6 @@ static jl_ast_context_t *jl_ast_ctx_enter(jl_module_t *m) JL_GLOBALLY_ROOTED JL_
         ctx = (jl_ast_context_t*)calloc(1, sizeof(jl_ast_context_t));
         jl_init_ast_ctx(ctx);
     }
-    ctx->parsed_method_stack.len = 0;
     ctx->module = m;
     return ctx;
 }
