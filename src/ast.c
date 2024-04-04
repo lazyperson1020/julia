@@ -211,15 +211,18 @@ static value_t fl_nothrow_julia_global(fl_context_t *fl_ctx, value_t *args, uint
 
 static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, uint32_t nargs) JL_NOTSAFEPOINT
 {
+    argcount(fl_ctx, "current-julia-module-counter", nargs, 1);
     jl_ast_context_t *ctx = jl_ast_ctx(fl_ctx);
     jl_module_t *m = ctx->module;
-    arraylist_t *parsed_method_stack = &ctx->parsed_method_stack;
     assert(m != NULL);
     // Get the outermost function name from the `parsed_method_stack` top
     char *funcname = NULL;
-    value_t funcname_v = parsed_method_stack->len > 0 ? (value_t)parsed_method_stack->items[0] : fl_ctx->NIL;
-    if (funcname_v != fl_ctx->NIL) {
-        funcname = symbol_name(fl_ctx, funcname_v);
+    // Apply `((parsed-method-stack 'bottom-stack))` to get the outermost function name
+    value_t parsed_method_stack = args[0];
+    value_t bottom_stack_function = fl_applyn(fl_ctx, 1, parsed_method_stack, symbol(fl_ctx, "bottom-stack"));
+    value_t bottom_stack_symbol = fl_applyn(fl_ctx, 0, bottom_stack_function);
+    if (bottom_stack_symbol != fl_ctx->NIL) {
+        funcname = symbol_name(fl_ctx, bottom_stack_symbol);
     }
     char buf[(funcname != NULL ? strlen(funcname) : 0) + 20];
     if (funcname != NULL && funcname[0] != '#') {
