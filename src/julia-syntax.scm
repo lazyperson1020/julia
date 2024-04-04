@@ -3953,7 +3953,7 @@ f(x) = yt(x)
             (list-tail (car (lam:vinfo lam)) (length (lam:args lam))))
   (lambda-optimize-vars! lam))
 
-(define (second-char-is-digit str)
+(define (anon-function-name? str)
   (if (>= (string-length str) 2)
       (char-numeric? (string.char str 1))
       #f))
@@ -4133,8 +4133,11 @@ f(x) = yt(x)
                  (let* ((exists (get defined name #f))
                         (type-name  (or (get namemap name #f)
                                         (and name
-                                             (symbol (string (if (second-char-is-digit (string name))
-                                                                  (string "#" (current-julia-module-counter parsed-method-stack))
+                                             (symbol (string (if (= (string.char (string name) 0) #\#)
+                                                                 ""
+                                                                 "#")
+                                                             (if (anon-function-name? (string name))
+                                                                  (current-julia-module-counter parsed-method-stack)
                                                                   name)
                                                              "#" (current-julia-module-counter parsed-method-stack))))))
                         (alldefs (expr-find-all
