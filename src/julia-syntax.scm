@@ -3903,9 +3903,11 @@ f(x) = yt(x)
             (list-tail (car (lam:vinfo lam)) (length (lam:args lam))))
   (lambda-optimize-vars! lam))
 
+;; must start with a hash and second character must be numeric
 (define (anon-function-name? str)
   (if (>= (string-length str) 2)
-      (char-numeric? (string.char str 1))
+      (and (char=? (string.char str 0) #\#)
+           (char-numeric? (string.char str 1)))
       #f))
 
 (define (cl-convert-- e fname lam namemap defined toplevel interp opaq parsed-method-stack (globals (table)) (locals (table)))
@@ -4083,13 +4085,11 @@ f(x) = yt(x)
                  (let* ((exists (get defined name #f))
                         (type-name  (or (get namemap name #f)
                                         (and name
-                                             (symbol (string (if (= (string.char (string name) 0) #\#)
-                                                                 ""
-                                                                 "#")
+                                             (symbol (string "#"
                                                              (if (anon-function-name? (string name))
                                                                   (current-julia-module-counter parsed-method-stack)
                                                                   name)
-                                                             "#" (current-julia-module-counter parsed-method-stack))))))
+                                                              "#" (current-julia-module-counter parsed-method-stack))))))
                         (alldefs (expr-find-all
                                   (lambda (ex) (and (length> ex 2) (eq? (car ex) 'method)
                                                     (not (eq? ex e))
