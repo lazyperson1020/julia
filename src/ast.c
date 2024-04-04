@@ -276,46 +276,6 @@ static value_t fl_julia_scalar(fl_context_t *fl_ctx, value_t *args, uint32_t nar
     return fl_ctx->F;
 }
 
-static value_t fl_julia_push_closure_expr(fl_context_t *fl_ctx, value_t *args, uint32_t nargs)
-{
-    argcount(fl_ctx, "julia-push-closure-expr", nargs, 1);
-    jl_ast_context_t *ctx = jl_ast_ctx(fl_ctx);
-    arraylist_t *parsed_method_stack = &ctx->parsed_method_stack;
-    // Check if the head of the symbol at `args[0]` is (method <name>) or (method (outerref <name>))
-    // and if so, push the name onto the `parsed_method_stack`
-    value_t arg = args[0];
-    if (iscons(arg)) {
-        value_t head = car_(arg);
-        if (head == symbol(fl_ctx, "method")) {
-            value_t name = car_(cdr_(arg));
-            if (issymbol(name)) {
-                arraylist_push(parsed_method_stack, (void*)name);
-                return fl_ctx->T;
-            }
-            if (iscons(name)) {
-                value_t head = car_(name);
-                if (head == symbol(fl_ctx, "outerref")) {
-                    value_t name_inner = car_(cdr_(name));
-                    assert(issymbol(name_inner));
-                    arraylist_push(parsed_method_stack, (void*)name_inner);
-                    return fl_ctx->T;
-                }
-            }
-        }
-    }
-    return fl_ctx->F;
-}
-
-static value_t fl_julia_pop_closure_expr(fl_context_t *fl_ctx, value_t *args, uint32_t nargs)
-{
-    argcount(fl_ctx, "julia-pop-closure-expr", nargs, 0);
-    jl_ast_context_t *ctx = jl_ast_ctx(fl_ctx);
-    arraylist_t *parsed_method_stack = &ctx->parsed_method_stack;
-    // Pop the top of the `parsed_method_stack`
-    arraylist_pop(parsed_method_stack);
-    return fl_ctx->NIL;
-}
-
 static jl_value_t *scm_to_julia_(fl_context_t *fl_ctx, value_t e, jl_module_t *mod);
 
 static const builtinspec_t julia_flisp_ast_ext[] = {
@@ -323,8 +283,6 @@ static const builtinspec_t julia_flisp_ast_ext[] = {
     { "nothrow-julia-global", fl_nothrow_julia_global },
     { "current-julia-module-counter", fl_current_module_counter },
     { "julia-scalar?", fl_julia_scalar },
-    { "julia-push-closure-expr", fl_julia_push_closure_expr },
-    { "julia-pop-closure-expr", fl_julia_pop_closure_expr },
     { NULL, NULL }
 };
 
