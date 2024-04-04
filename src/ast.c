@@ -216,7 +216,6 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
     assert(m != NULL);
     // Get the outermost function name from the `parsed_method_stack` top
     char *funcname = NULL;
-    // Apply `((parsed-method-stack 'bottom-stack))` to get the outermost function name
     value_t parsed_method_stack = args[0];
     if (parsed_method_stack != fl_ctx->NIL) {
         value_t bottom_stack_symbol = fl_applyn(fl_ctx, 1, symbol_value(symbol(fl_ctx, "last")), parsed_method_stack);
