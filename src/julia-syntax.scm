@@ -1,56 +1,6 @@
 ;; ignored variable name. TODO replace with _?
 (define UNUSED '|#unused#|)
 
-;; simple stack implementation
-(define (make-stack)
-  (define stack '())
-
-  (define (empty-stack?)
-    (null? stack))
-
-  (define (push-stack! item)
-    (set! stack (cons item stack)))
-
-  (define (pop-stack!)
-    (if (empty-stack?)
-        (error "Stack is empty")
-        (let ((top (car stack)))
-          (set! stack (cdr stack))
-          top)))
-
-  (define (top-stack)
-    (if (empty-stack?)
-        '()
-        (car stack)))
-
-  (define (bottom-stack)
-    (if (empty-stack?)
-        '()
-        (let loop ((current stack))
-          (if (null? (cdr current))
-              (car current)
-              (loop (cdr current))))))
-
-  (define (display-stack)
-    (if (empty-stack?)
-        (display "Stack is empty")
-        (begin
-          (display "Stack contents: ")
-          (display stack)
-          (newline))))
-
-  (define (dispatch msg)
-    (case msg
-      ('push-stack! push-stack!)
-      ('pop-stack! pop-stack!)
-      ('empty-stack? empty-stack?)
-      ('top-stack top-stack)
-      ('bottom-stack bottom-stack)
-      ('display display-stack)
-      (else (error "Unknown operation" msg))))
-
-  dispatch)
-
 ;; pass 1: syntax desugaring
 
 ;; allow (:: T) => (:: #gensym T) in formal argument lists
@@ -441,7 +391,7 @@
             (generator (if (expr-contains-p if-generated? body (lambda (x) (not (function-def? x))))
                            (let* ((gen    (generated-version body))
                                   (nongen (non-generated-version body))
-                                  (gname  (symbol (string (gensy) "#" (current-julia-module-counter (make-stack)))))
+                                  (gname  (symbol (string (gensy) "#" (current-julia-module-counter '()))))
                                   (gf     (make-generator-function gname names anames gen)))
                              (set! body (insert-after-meta
                                          nongen
@@ -581,7 +531,7 @@
                                         ""
                                         "#")
                                     (or und '_) "#"
-                                    (string (current-julia-module-counter (make-stack))))))))
+                                    (string (current-julia-module-counter '())))))))
       ;; this is a hack: nest these statements inside a call so they get closure
       ;; converted together, allowing all needed types to be defined before any methods.
       `(call (core ifelse) (false) (false) (block
@@ -1320,7 +1270,7 @@
                    (list a)))
          ;; TODO: always use a specific special name like #anon# or _, then ignore
          ;; this as a local variable name.
-         (name (symbol (string "#" (current-julia-module-counter (make-stack))))))
+         (name (symbol (string "#" (current-julia-module-counter '())))))
     (expand-forms
      `(block (local ,name)
              (function
@@ -4320,14 +4270,14 @@ f(x) = yt(x)
 (define (cl-convert- e fname lam namemap defined toplevel interp opaq parsed-method-stack (globals (table)) (locals (table)))
   (if (is-method? e)
       (let ((name (method-expr-name e)))
-        ((parsed-method-stack 'push-stack!) name)
+        (set! parsed-method-stack (cons name parsed-method-stack))
         (let ((res (cl-convert-- e fname lam namemap defined toplevel interp opaq parsed-method-stack globals locals)))
-          ((parsed-method-stack 'pop-stack!))
+          (set! parsed-method-stack (cdr parsed-method-stack))
           res))
       (cl-convert-- e fname lam namemap defined toplevel interp opaq parsed-method-stack globals locals)))
 
 (define (cl-convert e fname lam namemap defined toplevel interp opaq (globals (table)) (locals (table)))
-  (let ((parsed-method-stack (make-stack)))
+  (let ((parsed-method-stack '()))
     (cl-convert-- e fname lam namemap defined toplevel interp opaq parsed-method-stack globals locals)))
 
 (define (closure-convert e) (cl-convert e #f #f (table) (table) #f #f #f))
