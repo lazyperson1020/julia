@@ -4084,10 +4084,11 @@ f(x) = yt(x)
                  (let* ((exists (get defined name #f))
                         (type-name  (or (get namemap name #f)
                                         (and name
-                                             (symbol (string "#"
-                                                             (if (anon-function-name? (string name))
-                                                                  (current-julia-module-counter parsed-method-stack)
-                                                                  name)
+                                             (symbol (string (if (= (string.char (string name) 0) #\#)
+                                                                  (if (anon-function-name? (string name))
+                                                                    (string "#" (current-julia-module-counter parsed-method-stack))
+                                                                    name)
+                                                                  (string "#" name))
                                                               "#" (current-julia-module-counter parsed-method-stack))))))
                         (alldefs (expr-find-all
                                   (lambda (ex) (and (length> ex 2) (eq? (car ex) 'method)
