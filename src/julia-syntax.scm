@@ -226,17 +226,16 @@
                  (if lb (list lb '(core Any)) '())))))
 
 ;; check if the head of the symbol at x is of the form (`method` <name>) or (`method` (outerref <name>))
-;; <name> is returned as a symbol if it's non-nu
 (define (is-method? x)
   (if (and (pair? x) (eq? (car x) 'method))
       (let ((name (cadr x)))
         (if (and (pair? name) (eq? (car name) 'outerref))
             (let ((name (cadr name)))
               (if (symbol? name)
-                  name
+                  #t
                   #f))
             (if (symbol? name)
-                name
+                #t
                 #f)))
       #f))
 
