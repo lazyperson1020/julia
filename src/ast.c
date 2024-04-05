@@ -208,6 +208,13 @@ static value_t fl_nothrow_julia_global(fl_context_t *fl_ctx, value_t *args, uint
     return b != NULL && jl_atomic_load_relaxed(&b->value) != NULL ? fl_ctx->T : fl_ctx->F;
 }
 
+// used to generate a unique suffix for a given symbol (e.g. variable or type name)
+// first argument contains a stack of method definitions seen so far by `closure-convert` in flisp.
+// if the top of the stack is non-NIL, we use it to augment the suffix so that it becomes
+// of the form $top_level_method_name##$counter, where counter is stored in a per-module
+// side table indexed by top-level method name.
+// this ensures that precompile statements are a bit more stable accross different versions
+// of a codebase. see #53719
 static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, uint32_t nargs) JL_NOTSAFEPOINT
 {
     argcount(fl_ctx, "current-julia-module-counter", nargs, 1);
