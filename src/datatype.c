@@ -49,7 +49,7 @@ static jl_sym_t *jl_demangle_typename(jl_sym_t *s) JL_NOTSAFEPOINT
     if (end != NULL && end[1] == '#')
         end = strchr(&end[2], '#');
     int32_t len;
-    if (end == NULL || end == n || end == n+1)
+    if (end == NULL || end == n+1)
         len = strlen(n) - 1;
     else
         len = (end-n) - 1;  // extract `f` from `#f#...`

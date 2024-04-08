@@ -4272,7 +4272,6 @@ f(x) = yt(x)
       (let ((name (method-expr-name e)))
         (set! parsed-method-stack (cons name parsed-method-stack))
         (let ((res (cl-convert-- e fname lam namemap defined toplevel interp opaq parsed-method-stack globals locals)))
-          (set! parsed-method-stack (cdr parsed-method-stack))
           res))
       (cl-convert-- e fname lam namemap defined toplevel interp opaq parsed-method-stack globals locals)))
 
