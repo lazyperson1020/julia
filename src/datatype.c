@@ -25,6 +25,7 @@ static int is10digit(char c) JL_NOTSAFEPOINT
     return (c >= '0' && c <= '9');
 }
 
+// Returns true for typenames in the form "#[0-9]+" or "#.*##[0-9]+"
 STATIC_INLINE int is_canonicalized_anonfn_typename(char *name) JL_NOTSAFEPOINT
 {
     if (is10digit(name[1]))
