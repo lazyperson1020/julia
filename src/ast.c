@@ -240,12 +240,12 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
         if (ptrhash_get(mod_table, funcname) == HT_NOTFOUND) {
             // Don't forget to shift the counter by 2 and or it with 3
             // to avoid the counter being 0 or 1, which are reserved
-            ptrhash_put(mod_table, funcname, (void*)(uintptr_t)3);
+            ptrhash_put(mod_table, funcname, (void*)((uintptr_t)HT_NOTFOUND + 1));
         }
-        nxt = ((uint32_t)(uintptr_t)ptrhash_get(mod_table, funcname) >> 2);
+        nxt = ((uint32_t)(uintptr_t)ptrhash_get(mod_table, funcname) - (uintptr_t)HT_NOTFOUND - 1);
         // Increment the counter and don't forget to shift it by 2 and or it with 3
         // to avoid the counter being 0 or 1, which are reserved
-        ptrhash_put(mod_table, funcname, (void*)(uintptr_t)((nxt + 1) << 2 | 3));
+        ptrhash_put(mod_table, funcname, (void*)(nxt + (uintptr_t)HT_NOTFOUND + 1 + 1));
         jl_mutex_unlock_nogc(&m->lock);
         snprintf(buf, sizeof(buf), "%s##%d", funcname, nxt);
     }
