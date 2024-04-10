@@ -230,7 +230,7 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
     }
     char buf[(funcname != NULL ? strlen(funcname) : 0) + 20];
     if (funcname != NULL && funcname[0] != '#') {
-        uint32_t nxt;
+        int should_check_binding_table = 0;
         jl_mutex_lock_nogc(&m->lock);
         htable_t *mod_table = m->counter_table;
         if (mod_table == NULL) {
@@ -238,16 +238,28 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
         }
         // try to find the function name in the module's counter table, if it's not found, add it
         if (ptrhash_get(mod_table, funcname) == HT_NOTFOUND) {
-            // Don't forget to shift the counter by 2 and or it with 3
-            // to avoid the counter being 0 or 1, which are reserved
             ptrhash_put(mod_table, funcname, (void*)((uintptr_t)HT_NOTFOUND + 1));
+            should_check_binding_table = 1;
         }
-        nxt = ((uint32_t)(uintptr_t)ptrhash_get(mod_table, funcname) - (uintptr_t)HT_NOTFOUND - 1);
-        // Increment the counter and don't forget to shift it by 2 and or it with 3
-        // to avoid the counter being 0 or 1, which are reserved
-        ptrhash_put(mod_table, funcname, (void*)(nxt + (uintptr_t)HT_NOTFOUND + 1 + 1));
+        while (1) {
+            uint32_t nxt = ((uint32_t)(uintptr_t)ptrhash_get(mod_table, funcname) - (uintptr_t)HT_NOTFOUND - 1);
+            snprintf(buf, sizeof(buf), "%s##%d", funcname, nxt);
+            ptrhash_put(mod_table, funcname, (void*)(nxt + (uintptr_t)HT_NOTFOUND + 1 + 1));
+            if (!should_check_binding_table) {
+                break;
+            }
+            // Check if the counter is already in use
+            should_check_binding_table = 0;
+            jl_svec_t *t = m->bindings;
+            for (size_t i = 0; i < jl_svec_len(t); i++) {
+                jl_binding_t *b = (jl_binding_t*)jl_svecref(t, i);
+                if (strstr(jl_symbol_name(b->globalref->name), buf)) {
+                    should_check_binding_table = 1;
+                    break;
+                }
+            }
+        }
         jl_mutex_unlock_nogc(&m->lock);
-        snprintf(buf, sizeof(buf), "%s##%d", funcname, nxt);
     }
     else {
         snprintf(buf, sizeof(buf), "%d", jl_module_next_counter(ctx->module));

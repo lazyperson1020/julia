@@ -3498,6 +3498,7 @@ static void jl_restore_system_image_from_stream_(ios_t *f, jl_image_t *image, jl
                 memcpy(newitems, mod->usings.items, mod->usings.len * sizeof(void*));
                 mod->usings.items = newitems;
             }
+            mod->counter_table = NULL;
         }
         else {
             abort();
