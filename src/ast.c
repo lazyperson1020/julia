@@ -230,7 +230,6 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
     }
     char buf[(funcname != NULL ? strlen(funcname) : 0) + 20];
     if (funcname != NULL && funcname[0] != '#') {
-        int should_check_binding_table = 0;
         jl_mutex_lock_nogc(&m->lock);
         htable_t *mod_table = m->counter_table;
         if (mod_table == NULL) {
@@ -239,15 +238,12 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
         // try to find the function name in the module's counter table, if it's not found, add it
         if (ptrhash_get(mod_table, funcname) == HT_NOTFOUND) {
             ptrhash_put(mod_table, funcname, (void*)((uintptr_t)HT_NOTFOUND + 1));
-            should_check_binding_table = 1;
         }
-        while (1) {
+        int should_check_binding_table = 0;
+        do {
             uint32_t nxt = ((uint32_t)(uintptr_t)ptrhash_get(mod_table, funcname) - (uintptr_t)HT_NOTFOUND - 1);
             snprintf(buf, sizeof(buf), "%s##%d", funcname, nxt);
             ptrhash_put(mod_table, funcname, (void*)(nxt + (uintptr_t)HT_NOTFOUND + 1 + 1));
-            if (!should_check_binding_table) {
-                break;
-            }
             // Check if the counter is already in use
             should_check_binding_table = 0;
             jl_svec_t *t = jl_atomic_load_relaxed(&m->bindings);
@@ -261,7 +257,7 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
                     break;
                 }
             }
-        }
+        } while (should_check_binding_table);
         jl_mutex_unlock_nogc(&m->lock);
     }
     else {
