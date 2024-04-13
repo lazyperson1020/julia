@@ -693,6 +693,19 @@ end
     end
 end
 
+@inline function getindex(A::Tridiagonal{T}, b::BandIndex) where T
+    @boundscheck checkbounds(A, b)
+    if b.band == 0
+        return @inbounds A.d[b.index]
+    elseif b.band == -1
+        return @inbounds A.dl[b.index]
+    elseif b.band == 1
+        return @inbounds A.du[b.index]
+    else
+        return zero(T)
+    end
+end
+
 @inline function setindex!(A::Tridiagonal, x, i::Integer, j::Integer)
     @boundscheck checkbounds(A, i, j)
     if i == j
