@@ -3904,10 +3904,9 @@ f(x) = yt(x)
 
 ;; must start with a hash and second character must be numeric
 (define (anon-function-name? str)
-  (if (>= (string-length str) 2)
-      (and (char=? (string.char str 0) #\#)
-           (char-numeric? (string.char str 1)))
-      #f))
+  (and (>= (string-length str) 2)
+       (char=? (string.char str 0) #\#)
+       (char-numeric? (string.char str 1)))
 
 (define (cl-convert-- e fname lam namemap defined toplevel interp opaq parsed-method-stack (globals (table)) (locals (table)))
   (if (and (not lam)
