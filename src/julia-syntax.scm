@@ -3906,7 +3906,7 @@ f(x) = yt(x)
 (define (anon-function-name? str)
   (and (>= (string-length str) 2)
        (char=? (string.char str 0) #\#)
-       (char-numeric? (string.char str 1)))
+       (char-numeric? (string.char str 1))))
 
 (define (cl-convert-- e fname lam namemap defined toplevel interp opaq parsed-method-stack (globals (table)) (locals (table)))
   (if (and (not lam)
