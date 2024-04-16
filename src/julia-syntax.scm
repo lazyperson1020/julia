@@ -225,7 +225,7 @@
                  (if lb (list lb ub) (list ub))
                  (if lb (list lb '(core Any)) '())))))
 
-;; check if the head of the symbol at x is of the form (`method` <name>) or (`method` (outerref <name>))
+;; check if x is of the form (method <name>) or (method (outerref <name>))
 (define (is-method? x)
   (if (and (pair? x) (eq? (car x) 'method))
       (let ((name (cadr x)))
