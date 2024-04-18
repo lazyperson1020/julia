@@ -254,7 +254,14 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
                 if ((void*)b == jl_nothing) {
                     continue;
                 }
-                if (strstr(jl_symbol_name(b->globalref->name), buf)) {
+                // check whether `buf` is at the beginning or end of the symbol name
+                if (strncmp(buf, jl_symbol_name(b->globalref->name) + 1, strlen(buf)) == 0) { // +1 to skip the #
+                    name_collision_found = 1;
+                    break;
+                }
+                // check whether `buf` is at the end of the symbol name
+                size_t len = strlen(jl_symbol_name(b->globalref->name));
+                if (len >= strlen(buf) && strcmp(buf, jl_symbol_name(b->globalref->name) + len - strlen(buf)) == 0) {
                     name_collision_found = 1;
                     break;
                 }
