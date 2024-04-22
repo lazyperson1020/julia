@@ -773,18 +773,50 @@ module M53719
         end
         return bar2
     end
+    lambda1 = (x)->begin
+        function foo(y)
+            return x + y
+        end
+        return foo
+    end
+    lambda2 = (x)->begin
+        y -> x + y
+    end
 end
 
-# typeof(M53719.f) should be printed as var"#[0-9]+#[0-9]+"
-@test occursin(r"var\"#[0-9]+#[0-9]+", sprint(show, typeof(M53719.f), context = :module=>M53719))
-#typeof(M53719.foo(1)) should be printed as var"#bar#foo##[0-9]+"
-@test occursin(r"var\"#bar#foo##[0-9]+", sprint(show, typeof(M53719.foo(1)), context = :module=>M53719))
-#typeof(M53719.foo(1)(2)) should be printed as var"#baz#foo##[0-9]+"
-@test occursin(r"var\"#baz#foo##[0-9]+", sprint(show, typeof(M53719.foo(1)(2)), context = :module=>M53719))
-#typeof(M53719.foo2(1)) should be printed as var"#bar2#foo2##[0-9]+"
-@test occursin(r"var\"#bar2#foo2##[0-9]+", sprint(show, typeof(M53719.foo2(1)), context = :module=>M53719))
-#typeof(M53719.foo2(1)(2)) should be printed as var"#foo2##[0-9]+#foo2##[0-9]+"
-@test occursin(r"var\"#foo2##[0-9]+#foo2##[0-9]+", sprint(show, typeof(M53719.foo2(1)(2)), context = :module=>M53719))
+@testset "PR 53719 function names" begin
+    # M53719.f should be printed as var"#[0-9]+"
+    @test occursin(r"var\"#[0-9]+", sprint(show, M53719.f, context = :module=>M53719))
+    # M53719.foo(1) should be printed as var"#bar"
+    @test occursin(r"var\"#bar", sprint(show, M53719.foo(1), context = :module=>M53719))
+    # M53719.foo(1)(2) should be printed as var"#baz"
+    @test occursin(r"var\"#baz", sprint(show, M53719.foo(1)(2), context = :module=>M53719))
+    # M53719.foo2(1) should be printed as var"#bar2"
+    @test occursin(r"var\"#bar2", sprint(show, M53719.foo2(1), context = :module=>M53719))
+    # M53719.foo2(1)(2) should be printed as var"#foo2##[0-9]+"
+    @test occursin(r"var\"#foo2##[0-9]+", sprint(show, M53719.foo2(1)(2), context = :module=>M53719))
+    # M53719.lambda1(1) should be printed as var"#foo"
+    @test occursin(r"var\"#foo", sprint(show, M53719.lambda1(1), context = :module=>M53719))
+    # M53719.lambda2(1) should be printed as var"#[0-9]+"
+    @test occursin(r"var\"#[0-9]+", sprint(show, M53719.lambda2(1), context = :module=>M53719))
+end
+
+@testset "PR 53719 function types" begin
+    # typeof(M53719.f) should be printed as var"#[0-9]+#[0-9]+"
+    @test occursin(r"var\"#[0-9]+#[0-9]+", sprint(show, typeof(M53719.f), context = :module=>M53719))
+    #typeof(M53719.foo(1)) should be printed as var"#bar#foo##[0-9]+"
+    @test occursin(r"var\"#bar#foo##[0-9]+", sprint(show, typeof(M53719.foo(1)), context = :module=>M53719))
+    #typeof(M53719.foo(1)(2)) should be printed as var"#baz#foo##[0-9]+"
+    @test occursin(r"var\"#baz#foo##[0-9]+", sprint(show, typeof(M53719.foo(1)(2)), context = :module=>M53719))
+    #typeof(M53719.foo2(1)) should be printed as var"#bar2#foo2##[0-9]+"
+    @test occursin(r"var\"#bar2#foo2##[0-9]+", sprint(show, typeof(M53719.foo2(1)), context = :module=>M53719))
+    #typeof(M53719.foo2(1)(2)) should be printed as var"#foo2##[0-9]+#foo2##[0-9]+"
+    @test occursin(r"var\"#foo2##[0-9]+#foo2##[0-9]+", sprint(show, typeof(M53719.foo2(1)(2)), context = :module=>M53719))
+    #typeof(M53719.lambda1(1)) should be printed as var"#foo#[0-9]+"
+    @test occursin(r"var\"#foo#[0-9]+", sprint(show, typeof(M53719.lambda1(1)), context = :module=>M53719))
+    #typeof(M53719.lambda2(1)) should be printed as var"#[0-9]+#[0-9]+"
+    @test occursin(r"var\"#[0-9]+#[0-9]+", sprint(show, typeof(M53719.lambda2(1)), context = :module=>M53719))
+end
 
 #test methodshow.jl functions
 @test Base.inbase(Base)
