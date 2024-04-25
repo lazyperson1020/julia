@@ -20,26 +20,6 @@ extern "C" {
 
 // allocating TypeNames -----------------------------------------------------------
 
-static int is10digit(char c) JL_NOTSAFEPOINT
-{
-    return (c >= '0' && c <= '9');
-}
-
-// Returns true for typenames in the form "#[0-9]+" or "#.*##[0-9]+"
-STATIC_INLINE int is_canonicalized_anonfn_typename(char *name) JL_NOTSAFEPOINT
-{
-    if (is10digit(name[1]))
-        return 1;
-    char *delim = strchr(&name[1], '#');
-    if (delim == NULL)
-        return 0;
-    if (delim[1] != '#')
-        return 0;
-    if (!is10digit(delim[2]))
-        return 0;
-    return 1;
-}
-
 static jl_sym_t *jl_demangle_typename(jl_sym_t *s) JL_NOTSAFEPOINT
 {
     char *n = jl_symbol_name(s);

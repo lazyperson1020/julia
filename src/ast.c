@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "support/strhash.h"
+
 #ifdef _OS_WINDOWS_
 #include <malloc.h>
 #endif
@@ -208,6 +211,42 @@ static value_t fl_nothrow_julia_global(fl_context_t *fl_ctx, value_t *args, uint
     return b != NULL && jl_atomic_load_relaxed(&b->value) != NULL ? fl_ctx->T : fl_ctx->F;
 }
 
+static htable_t *rebuild_counter_table(jl_module_t *m) JL_NOTSAFEPOINT
+{
+    htable_t *counter_table = m->counter_table = htable_new((htable_t *)malloc_s(sizeof(htable_t)), 0);
+    jl_svec_t *t = jl_atomic_load_relaxed(&m->bindings);
+    for (size_t i = 0; i < jl_svec_len(t); i++) {
+        jl_binding_t *b = (jl_binding_t*)jl_svecref(t, i);
+        if ((void*)b == jl_nothing) {
+            continue;
+        }
+        char *globalref_name = jl_symbol_name(b->globalref->name);
+        if (is_canonicalized_anonfn_typename(globalref_name)) {
+            size_t len = strlen(globalref_name);
+            char enclosing_function_name[len];
+            // copy globalref_name into the buffer until we hit a `##` sequence
+            for (size_t j = 1; j < len - 1; j++) {
+                if (globalref_name[j] == '#' && globalref_name[j + 1] == '#') {
+                    enclosing_function_name[j - 1] = '\0';
+                    break;
+                }
+                enclosing_function_name[j - 1] = globalref_name[j];
+            }
+            if (strhash_get(counter_table, enclosing_function_name) == HT_NOTFOUND) {
+                strhash_put(counter_table, enclosing_function_name, (void*)((uintptr_t)HT_NOTFOUND + 1));
+            }
+            char *pint = strrchr(globalref_name, '#');
+            assert(pint != NULL);
+            int counter = atoi(pint + 1);
+            int max_seen_so_far = ((uint32_t)(uintptr_t)strhash_get(counter_table, enclosing_function_name) - (uintptr_t)HT_NOTFOUND - 1);
+            if (counter >= max_seen_so_far) {
+                strhash_put(counter_table, enclosing_function_name, (void*)((uintptr_t)counter + 1 + (uintptr_t)HT_NOTFOUND + 1));
+            }
+        }
+    }
+    return counter_table;
+}
+
 // used to generate a unique suffix for a given symbol (e.g. variable or type name)
 // first argument contains a stack of method definitions seen so far by `closure-convert` in flisp.
 // if the top of the stack is non-NIL, we use it to augment the suffix so that it becomes
@@ -231,42 +270,17 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
     char buf[(funcname != NULL ? strlen(funcname) : 0) + 20];
     if (funcname != NULL && funcname[0] != '#') {
         jl_mutex_lock_nogc(&m->lock);
-        htable_t *mod_table = m->counter_table;
-        if (mod_table == NULL) {
-            mod_table = m->counter_table = htable_new((htable_t *)malloc_s(sizeof(htable_t)), 0);
+        htable_t *counter_table = m->counter_table;
+        if (counter_table == NULL) {
+            counter_table = rebuild_counter_table(m);
         }
         // try to find the function name in the module's counter table, if it's not found, add it
-        if (ptrhash_get(mod_table, funcname) == HT_NOTFOUND) {
-            ptrhash_put(mod_table, funcname, (void*)((uintptr_t)HT_NOTFOUND + 1));
+        if (strhash_get(counter_table, funcname) == HT_NOTFOUND) {
+            strhash_put(counter_table, funcname, (void*)((uintptr_t)HT_NOTFOUND + 1));
         }
-        // counter_table is dropped on serialization, so we need to be conservative
-        // and check the binding table for potential name collisions
-        int name_collision_found = 0;
-        do {
-            uint32_t nxt = ((uint32_t)(uintptr_t)ptrhash_get(mod_table, funcname) - (uintptr_t)HT_NOTFOUND - 1);
-            snprintf(buf, sizeof(buf), "%s##%d", funcname, nxt);
-            ptrhash_put(mod_table, funcname, (void*)(nxt + (uintptr_t)HT_NOTFOUND + 1 + 1));
-            // Check if the counter is already in use
-            name_collision_found = 0;
-            jl_svec_t *t = jl_atomic_load_relaxed(&m->bindings);
-            for (size_t i = 0; i < jl_svec_len(t); i++) {
-                jl_binding_t *b = (jl_binding_t*)jl_svecref(t, i);
-                if ((void*)b == jl_nothing) {
-                    continue;
-                }
-                // check whether `buf` is at the beginning or end of the symbol name
-                if (strncmp(buf, jl_symbol_name(b->globalref->name) + 1, strlen(buf)) == 0) { // +1 to skip the #
-                    name_collision_found = 1;
-                    break;
-                }
-                // check whether `buf` is at the end of the symbol name
-                size_t len = strlen(jl_symbol_name(b->globalref->name));
-                if (len >= strlen(buf) && strcmp(buf, jl_symbol_name(b->globalref->name) + len - strlen(buf)) == 0) {
-                    name_collision_found = 1;
-                    break;
-                }
-            }
-        } while (name_collision_found);
+        uint32_t nxt = ((uint32_t)(uintptr_t)strhash_get(counter_table, funcname) - (uintptr_t)HT_NOTFOUND - 1);
+        snprintf(buf, sizeof(buf), "%s##%d", funcname, nxt);
+        strhash_put(counter_table, funcname, (void*)(nxt + 1 + (uintptr_t)HT_NOTFOUND + 1));
         jl_mutex_unlock_nogc(&m->lock);
     }
     else {
