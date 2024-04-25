@@ -223,9 +223,10 @@ static htable_t *rebuild_counter_table(jl_module_t *m) JL_NOTSAFEPOINT
         char *globalref_name = jl_symbol_name(b->globalref->name);
         if (is_canonicalized_anonfn_typename(globalref_name)) {
             size_t len = strlen(globalref_name);
-            char enclosing_function_name[len];
+            char *enclosing_function_name = (char*)calloc_s(len + 1);
+            int should_free = 1;
             // copy globalref_name into the buffer until we hit a `##` sequence
-            for (size_t j = 1; j < len - 1; j++) {
+            for (size_t j = 1; j + 1 < len; j++) {
                 if (globalref_name[j] == '#' && globalref_name[j + 1] == '#') {
                     enclosing_function_name[j - 1] = '\0';
                     break;
@@ -234,6 +235,7 @@ static htable_t *rebuild_counter_table(jl_module_t *m) JL_NOTSAFEPOINT
             }
             if (strhash_get(counter_table, enclosing_function_name) == HT_NOTFOUND) {
                 strhash_put(counter_table, enclosing_function_name, (void*)((uintptr_t)HT_NOTFOUND + 1));
+                should_free = 0;
             }
             char *pint = strrchr(globalref_name, '#');
             assert(pint != NULL);
@@ -241,6 +243,9 @@ static htable_t *rebuild_counter_table(jl_module_t *m) JL_NOTSAFEPOINT
             int max_seen_so_far = ((uint32_t)(uintptr_t)strhash_get(counter_table, enclosing_function_name) - (uintptr_t)HT_NOTFOUND - 1);
             if (counter >= max_seen_so_far) {
                 strhash_put(counter_table, enclosing_function_name, (void*)((uintptr_t)counter + 1 + (uintptr_t)HT_NOTFOUND + 1));
+            }
+            if (should_free) {
+                free(enclosing_function_name);
             }
         }
     }

@@ -25,8 +25,12 @@ extern "C" {
 
 size_t simple_strhash(size_t key) JL_NOTSAFEPOINT
 {
-    // TODO...
-    return 0;
+  size_t hash = 0;
+  const char *str = (const char*)key;
+  while (*str) {
+    hash = (hash << 5) - hash + (unsigned char)*str++;
+  }
+  return hash;
 }
 
 HTIMPL(strhash, simple_strhash, STR_EQ)
