@@ -858,8 +858,6 @@ STATIC_INLINE int is_canonicalized_anonfn_typename(char *name) JL_NOTSAFEPOINT
 {
     if (name[0] != '#')
         return 0;
-    if (isdigit(name[1]))
-        return 1;
     char *delim = strchr(&name[1], '#');
     if (delim == NULL)
         return 0;

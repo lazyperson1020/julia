@@ -222,17 +222,15 @@ static htable_t *rebuild_counter_table(jl_module_t *m) JL_NOTSAFEPOINT
         }
         char *globalref_name = jl_symbol_name(b->globalref->name);
         if (is_canonicalized_anonfn_typename(globalref_name)) {
-            size_t len = strlen(globalref_name);
-            char *enclosing_function_name = (char*)calloc_s(len + 1);
             int should_free = 1;
-            // copy globalref_name into the buffer until we hit a `##` sequence
-            for (size_t j = 1; j + 1 < len; j++) {
-                if (globalref_name[j] == '#' && globalref_name[j + 1] == '#') {
-                    enclosing_function_name[j - 1] = '\0';
-                    break;
-                }
-                enclosing_function_name[j - 1] = globalref_name[j];
-            }
+            // copy globalref_name into the buffer until we hit a `#` character
+            char *delim = strchr(&globalref_name[1], '#');
+            assert(delim != NULL);
+            size_t len = delim - globalref_name - 1;
+            assert(len > 0);
+            char *enclosing_function_name = (char*)calloc_s(len + 1);
+            memcpy(enclosing_function_name, &globalref_name[1], len);
+            // check if the enclosing function name is already in the counter table
             if (strhash_get(counter_table, enclosing_function_name) == HT_NOTFOUND) {
                 strhash_put(counter_table, enclosing_function_name, (void*)((uintptr_t)HT_NOTFOUND + 1));
                 should_free = 0;
