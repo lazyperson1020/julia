@@ -271,7 +271,7 @@ static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, ui
         funcname = symbol_name(fl_ctx, bottom_stack_symbol);
     }
     char buf[(funcname != NULL ? strlen(funcname) : 0) + 20];
-    if (funcname != NULL && funcname[0] != '#') {
+    if (funcname != NULL && strchr(funcname, '#') == NULL) {
         jl_mutex_lock_nogc(&m->lock);
         htable_t *counter_table = m->counter_table;
         if (counter_table == NULL) {
