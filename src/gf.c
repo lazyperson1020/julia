@@ -2392,7 +2392,7 @@ jl_code_instance_t *jl_method_inferred_with_abi(jl_method_instance_t *mi JL_PROP
 
 jl_mutex_t precomp_statement_out_lock;
 
-static void record_precompile_statement(jl_method_instance_t *mi)
+void jl_record_precompile_statement(jl_method_instance_t *mi)
 {
     static ios_t f_precompile;
     static JL_STREAM* s_precompile = NULL;
@@ -2513,7 +2513,7 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
                     codeinst->rettype_const = unspec->rettype_const;
                     jl_atomic_store_release(&codeinst->invoke, unspec_invoke);
                     jl_mi_cache_insert(mi, codeinst);
-                    record_precompile_statement(mi);
+                    jl_record_precompile_statement(mi);
                     return codeinst;
                 }
             }
@@ -2530,7 +2530,7 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
                 0, 1, ~(size_t)0, 0, 0, jl_nothing, 0, NULL);
             jl_atomic_store_release(&codeinst->invoke, jl_fptr_interpret_call);
             jl_mi_cache_insert(mi, codeinst);
-            record_precompile_statement(mi);
+            jl_record_precompile_statement(mi);
             return codeinst;
         }
         if (compile_option == JL_OPTIONS_COMPILE_OFF) {
@@ -2574,7 +2574,7 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
             // Something went wrong. Bail to the fallback path.
             codeinst = NULL;
         } else if (did_compile) {
-            record_precompile_statement(mi);
+            jl_record_precompile_statement(mi);
         }
         JL_GC_POP();
     }

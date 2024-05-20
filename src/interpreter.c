@@ -296,8 +296,13 @@ static jl_value_t *eval_value(jl_value_t *e, interpreter_state *s)
         for (size_t i = 0; i < nargs; i++)
             argv[i] = eval_value(args[i], s);
         JL_NARGSV(new_opaque_closure, 4);
+        jl_value_t **env = argv + 4;
+        size_t nenv = nargs - 4;
+        jl_value_t *captures = jl_f_tuple(NULL, env, nenv);
+        JL_GC_PUSH1(&captures);
         jl_value_t *ret = (jl_value_t*)jl_new_opaque_closure((jl_tupletype_t*)argv[0], argv[1], argv[2],
-            argv[3], argv+4, nargs-4, 1);
+            argv[3], captures, jl_current_task->world_age, 1);
+        JL_GC_POP();
         JL_GC_POP();
         return ret;
     }
