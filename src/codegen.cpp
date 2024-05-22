@@ -1974,6 +1974,7 @@ public:
 
     Value *pgcstack = NULL;
     Instruction *topalloca = NULL;
+    Value *world_age_field = NULL;
 
     bool use_cache = false;
     bool external_linkage = false;
@@ -6536,7 +6537,7 @@ static jl_cgval_t emit_expr(jl_codectx_t &ctx, jl_value_t *expr, ssize_t ssaidx_
                 if (F) {
                     jl_cgval_t jlcall_ptr = mark_julia_type(ctx, F, false, jl_voidpointer_type);
                     jl_aliasinfo_t ai = jl_aliasinfo_t::fromTBAA(ctx, ctx.tbaa().tbaa_gcframe);
-                    Instruction *I = ctx.builder.CreateAlignedLoad(ctx.types().T_size, get_last_age_field(ctx), ctx.types().alignof_ptr);
+                    Instruction *I = ctx.builder.CreateAlignedLoad(ctx.types().T_size, ctx.world_age_field, ctx.types().alignof_ptr);
                     jl_cgval_t world_age = mark_julia_type(ctx, ai.decorateInst(I), false, jl_long_type);
                     jl_cgval_t fptr;
                     if (specF)
@@ -7017,11 +7018,12 @@ static Function* gen_cfun_wrapper(
     ctx.builder.SetCurrentDebugLocation(noDbg);
     allocate_gc_frame(ctx, b0, true);
 
-    Value *world_age_field = get_last_age_field(ctx);
+    ctx.world_age_field = get_last_age_field(ctx);
     jl_aliasinfo_t ai = jl_aliasinfo_t::fromTBAA(ctx, ctx.tbaa().tbaa_gcframe);
     Value *last_age = ai.decorateInst(
-            ctx.builder.CreateAlignedLoad(ctx.types().T_size, world_age_field, ctx.types().alignof_ptr));
+            ctx.builder.CreateAlignedLoad(ctx.types().T_size, ctx.world_age_field, ctx.types().alignof_ptr));
 
+    cast<LoadInst>(last_age)->setMetadata(LLVMContext::MD_invariant_group, llvm::MDNode::get(ctx.builder.getContext(), {}));
     Value *world_v = ctx.builder.CreateAlignedLoad(ctx.types().T_size,
         prepare_global_in(jl_Module, jlgetworld_global), ctx.types().alignof_ptr);
     cast<LoadInst>(world_v)->setOrdering(AtomicOrdering::Acquire);
@@ -7037,7 +7039,7 @@ static Function* gen_cfun_wrapper(
                 ctx.types().alignof_ptr);
         age_ok = ctx.builder.CreateICmpUGE(lam_max, world_v);
     }
-    ctx.builder.CreateStore(world_v, world_age_field);
+    ctx.builder.CreateStore(world_v, ctx.world_age_field);
 
     // first emit code to record the arguments
     Function::arg_iterator AI = cw->arg_begin();
@@ -7409,7 +7411,7 @@ static Function* gen_cfun_wrapper(
         r = NULL;
     }
 
-    ctx.builder.CreateStore(last_age, world_age_field);
+    ctx.builder.CreateStore(last_age, ctx.world_age_field);
     ctx.builder.CreateRet(r);
 
     ctx.builder.SetCurrentDebugLocation(noDbg);
@@ -8469,13 +8471,13 @@ static jl_llvm_functions_t
     // step 6. set up GC frame
     allocate_gc_frame(ctx, b0);
     Value *last_age = NULL;
-    Value *world_age_field = get_last_age_field(ctx);
+    ctx.world_age_field = get_last_age_field(ctx);
     if (toplevel || ctx.is_opaque_closure) {
         jl_aliasinfo_t ai = jl_aliasinfo_t::fromTBAA(ctx, ctx.tbaa().tbaa_gcframe);
         last_age = ai.decorateInst(ctx.builder.CreateAlignedLoad(
-            ctx.types().T_size, world_age_field, ctx.types().alignof_ptr));
+            ctx.types().T_size, ctx.world_age_field, ctx.types().alignof_ptr));
+            cast<LoadInst>(last_age)->setMetadata(LLVMContext::MD_invariant_group, llvm::MDNode::get(ctx.builder.getContext(), {}));
     }
-
     // step 7. allocate local variables slots
     // must be in the first basic block for the llvm mem2reg pass to work
     auto allocate_local = [&ctx, &dbuilder, &debugcache, topdebugloc, va, debug_enabled, M](jl_varinfo_t &varinfo, jl_sym_t *s, int i) {
@@ -8721,7 +8723,7 @@ static jl_llvm_functions_t
 
                 jl_cgval_t closure_world = typed_load(ctx, worldaddr, NULL, (jl_value_t*)jl_long_type,
                     nullptr, nullptr, false, AtomicOrdering::NotAtomic, false, ctx.types().alignof_ptr.value());
-                emit_unbox_store(ctx, closure_world, world_age_field, ctx.tbaa().tbaa_gcframe, ctx.types().alignof_ptr.value());
+                emit_unbox_store(ctx, closure_world, ctx.world_age_field, ctx.tbaa().tbaa_gcframe, ctx.types().alignof_ptr.value());
 
                 // Load closure env
                 Value *envaddr = ctx.builder.CreateInBoundsGEP(
@@ -8990,7 +8992,7 @@ static jl_llvm_functions_t
         LoadInst *world = ctx.builder.CreateAlignedLoad(ctx.types().T_size,
             prepare_global_in(jl_Module, jlgetworld_global), ctx.types().alignof_ptr);
         world->setOrdering(AtomicOrdering::Acquire);
-        ctx.builder.CreateAlignedStore(world, world_age_field, ctx.types().alignof_ptr);
+        ctx.builder.CreateAlignedStore(world, ctx.world_age_field, ctx.types().alignof_ptr);
     }
 
     // step 11b. Emit the entry safepoint
@@ -9289,7 +9291,7 @@ static jl_llvm_functions_t
 
             mallocVisitStmt(sync_bytes, have_dbg_update);
             if (toplevel || ctx.is_opaque_closure)
-                ctx.builder.CreateStore(last_age, world_age_field);
+                ctx.builder.CreateStore(last_age, ctx.world_age_field);
             assert(type_is_ghost(retty) || returninfo.cc == jl_returninfo_t::SRet ||
                 retval->getType() == ctx.f->getReturnType());
             ctx.builder.CreateRet(retval);
@@ -9637,7 +9639,7 @@ static jl_llvm_functions_t
                         prepare_global_in(jl_Module, jlgetworld_global), Twine(),
                         /*isVolatile*/false, ctx.types().alignof_ptr, /*insertBefore*/&I);
                     world->setOrdering(AtomicOrdering::Acquire);
-                    StoreInst *store_world = new StoreInst(world, world_age_field,
+                    StoreInst *store_world = new StoreInst(world, ctx.world_age_field,
                         /*isVolatile*/false, ctx.types().alignof_ptr, /*insertBefore*/&I);
                     (void)store_world;
                 }
