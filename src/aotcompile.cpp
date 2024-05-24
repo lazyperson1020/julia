@@ -1691,7 +1691,7 @@ void jl_dump_native_impl(void *native_code,
         llvm::IRBuilder<> builder(BasicBlock::Create(Context, "top", F));
         builder.CreateRet(jlRTLD_DEFAULT_var);
         F->setLinkage(GlobalValue::ExternalLinkage);
-        if (TheTriple.isOSWindows()) {
+        if (TheTriple.isOSBinFormatCOFF()) {
             F->setDLLStorageClass(GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
         }
         if (TheTriple.isOSWindows()) {
