@@ -496,7 +496,7 @@ public:
         auto var = new GlobalVariable(*m, _type(T_size),
                 isconst, GlobalVariable::ExternalLinkage,
                 NULL, name);
-        if (Triple(m->getTargetTriple()).getObjectFormat() == Triple::COFF)
+        if (Triple(m->getTargetTriple()).isOSBinFormatCOFF())
             var->setDLLStorageClass(GlobalValue::DLLStorageClassTypes::DLLImportStorageClass); // This is necessary to avoid auto import issues
         return var;
     }
