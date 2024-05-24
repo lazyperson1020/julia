@@ -1687,7 +1687,7 @@ void jl_dump_native_impl(void *native_code,
         Type *T_size = DL.getIntPtrType(Context);
         Type *T_psize = T_size->getPointerTo();
         auto FT = FunctionType::get(Type::getInt8Ty(Context)->getPointerTo()->getPointerTo(), {}, false);
-        auto F = Function::Create(FT, Function::ExternalLinkage, "get_jl_RTLD_DEFAULT_handle_pointer", metadataM);
+        auto F = Function::Create(FT, Function::ExternalLinkage, "get_jl_RTLD_DEFAULT_handle_addr", metadataM);
         llvm::IRBuilder<> builder(BasicBlock::Create(Context, "top", F));
         builder.CreateRet(jlRTLD_DEFAULT_var);
         F->setLinkage(GlobalValue::ExternalLinkage);
