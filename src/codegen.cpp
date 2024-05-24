@@ -496,7 +496,7 @@ public:
         auto var = new GlobalVariable(*m, _type(T_size),
                 isconst, GlobalVariable::ExternalLinkage,
                 NULL, name);
-        if (Triple(m->getTargetTriple()).isOSWindows())
+        if (Triple(m->getTargetTriple()).getObjectFormat() == Triple::COFF)
             var->setDLLStorageClass(GlobalValue::DLLStorageClassTypes::DLLImportStorageClass); // This is necessary to avoid auto import issues
         return var;
     }
@@ -1791,7 +1791,8 @@ static inline GlobalVariable *prepare_global_in(Module *M, GlobalVariable *G)
         proto->copyAttributesFrom(G);
         // DLLImport only needs to be set for the shadow module
         // it just gets annoying in the JIT
-        proto->setDLLStorageClass(GlobalValue::DefaultStorageClass);
+        if (Triple(M->getTargetTriple()).getObjectFormat() != Triple::COFF)
+            proto->setDLLStorageClass(GlobalValue::DefaultStorageClass);
         return proto;
     }
     return cast<GlobalVariable>(local);
