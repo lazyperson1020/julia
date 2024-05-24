@@ -497,7 +497,7 @@ public:
                 isconst, GlobalVariable::ExternalLinkage,
                 NULL, name);
         if (Triple(m->getTargetTriple()).isOSWindows())
-            var->setDLLStorageClass(GlobalValue::DLLStorageClassTypes::DLLImportStorageClass); // This is necessary to avoid auto import issues
+            var->setDLLStorageClass(GlobalValue::DLLStorageClassTypes::DLLImportStorageClass); // Cross-library imports must be explicit for COFF (Windows)
         return var;
     }
     GlobalVariable *realize(jl_codectx_t &ctx);
