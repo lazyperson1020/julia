@@ -338,6 +338,12 @@ Base.Cmd
 Base.setenv
 Base.addenv
 Base.withenv
+Base.shell_escape
+Base.shell_split
+Base.shell_escape_posixly
+Base.shell_escape_csh
+Base.shell_escape_wincmd
+Base.escape_microsoft_c_args
 Base.setcpuaffinity
 Base.pipeline(::Any, ::Any, ::Any, ::Any...)
 Base.pipeline(::Base.AbstractCmd)
@@ -375,7 +381,7 @@ Base.Sys.isjsvm
 Base.Sys.loadavg
 Base.Sys.isexecutable
 Base.Sys.isreadable
-Base.Sys.iswriteable
+Base.Sys.iswritable
 Base.Sys.username
 Base.@static
 ```

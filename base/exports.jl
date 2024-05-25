@@ -460,7 +460,6 @@ export
     vcat,
     vec,
     view,
-    wrap,
     zeros,
 
 # search, find, match and related functions
@@ -653,11 +652,6 @@ export
     sprint,
     summary,
 
-# ScopedValue
-    with,
-    @with,
-    ScopedValue,
-
 # logging
     @debug,
     @info,
@@ -711,6 +705,8 @@ export
     yield,
     yieldto,
     wait,
+    waitany,
+    waitall,
     timedwait,
     asyncmap,
     asyncmap!,
@@ -719,6 +715,7 @@ export
 # channels
     take!,
     put!,
+    isfull,
     isready,
     fetch,
     bind,
@@ -935,6 +932,7 @@ export
     isblockdev,
     ischardev,
     isdir,
+    isexecutable,
     isfifo,
     isfile,
     islink,
